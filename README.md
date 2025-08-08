@@ -24,7 +24,4 @@ Once the setup is complete, you can run the Streamlit application:
 streamlit run app.py
 ```
 
-Open your web browser and navigate to the local URL provided by Streamlit (usually `http://localhost:8501`).
-=======
->>>>>>> 1580ee9d12eb8a840b02d793ff53d4b5173c271a
->>>>>>> 7b633ed6bee1cd6cbf7ab36efb0c934abd5ab30b
+
