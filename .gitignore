@@ -1,0 +1,30 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+
+
+# Editor-specific files
+.vscode/
+.idea/
+.vs/
+
+.env
+
+# Data and databases
+data/raw/
+vector_db/
+user_data/
+*.db
+*.sqlite3
+
+# Reports and outputs
+*.pdf
+*.log
+
+.venv/

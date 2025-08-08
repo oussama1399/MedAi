@@ -1,0 +1,169 @@
+# 01_Historique.py - Page d'historique des chats
+
+import streamlit as st
+import os
+import sys
+from datetime import datetime
+import logging
+
+# Ajouter le répertoire parent au path pour importer utils
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils import load_users, save_users, export_to_pdf, show_user_sidebar, export_full_history_pdf
+
+# Configuration du logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Titre et style de l'application
+st.set_page_config(
+    page_title="🕰️ Historique - Assistant Santé IA",
+    page_icon="🩺",
+    layout="wide"
+)
+
+# Chemin de stockage local (keeping for compatibility)
+USER_DATA_DIR = "user_data"
+USERS_FILE = os.path.join(USER_DATA_DIR, "users.json")
+
+# Vérification de la session
+if "logged_in" not in st.session_state or not st.session_state.logged_in:
+    st.warning("⚠️ Vous devez être connecté pour accéder à cette page.")
+    # Ajouter un bouton pour faciliter la navigation vers la page de connexion
+    if st.button("🔐 Aller à la page de connexion"):
+        # Navigation vers la page principale
+        st.switch_page("app.py") 
+    st.stop()
+
+# Obtenir les données utilisateur
+username = st.session_state.current_user
+users = load_users()
+user_data = users.get(username, {"history": []})
+history = user_data.get("history", [])
+
+# Afficher la barre latérale utilisateur
+show_user_sidebar(username)
+
+# CSS personnalisé
+st.markdown("""
+<style>
+    .history-item {
+        background: #f8f9fa;
+        padding: 20px 28px;
+        margin-bottom: 18px;
+        border-radius: 12px;
+        border-left: 6px solid #0d6efd;
+        font-size: 1.08em;
+        min-height: 80px;
+        max-width: 100%;
+        word-break: break-word;
+    }
+    .history-date {
+        font-size: 0.95em;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    .action-btn {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-radius: 7px;
+        margin-right: 8px;
+        font-size: 1.05em;
+        padding: 0.4em 1.1em;
+    }
+    .download-button {
+        background-color: #198754 !important;
+        color: white !important;
+        padding: 0.7rem 1.2rem;
+        border-radius: 7px;
+        font-size: 1.1em;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Interface principale
+st.title("🕰️ Historique de vos Consultations")
+
+# Affichage des statistiques
+total_questions = len(history)
+st.subheader(f"📊 Vous avez posé {total_questions} question{'s' if total_questions > 1 else ''}")
+
+# Option pour exporter tout l'historique
+if total_questions > 0:
+    st.markdown(export_full_history_pdf(history, username), unsafe_allow_html=True)
+
+# Filtrage par mot-clé
+keyword = st.text_input("🔍 Rechercher dans vos questions", "")
+
+# Tri des questions
+sort_options = ["Plus récentes d'abord", "Plus anciennes d'abord"]
+sort_choice = st.radio("Tri des questions:", sort_options, horizontal=True)
+
+# Filtrer et trier l'historique
+filtered_history = history
+if keyword:
+    filtered_history = [h for h in history if keyword.lower() in h["question"].lower() or keyword.lower() in h["answer"].lower()]
+
+# Tri selon l'option sélectionnée
+if sort_choice == "Plus anciennes d'abord":
+    filtered_history = sorted(filtered_history, key=lambda x: x.get("timestamp", ""))
+else:
+    filtered_history = sorted(filtered_history, key=lambda x: x.get("timestamp", ""), reverse=True)
+
+# Affichage des résultats de recherche
+if keyword and filtered_history:
+    st.success(f"✅ {len(filtered_history)} résultat(s) trouvé(s) pour '{keyword}'")
+elif keyword:
+    st.warning(f"⚠️ Aucun résultat trouvé pour '{keyword}'")
+
+# Affichage de l'historique
+if not filtered_history:
+    st.info("👉 Aucune question posée encore. Retournez à l'accueil pour commencer.")
+else:
+    for i, item in enumerate(filtered_history):
+        with st.container():
+            # Formatage des dates
+            try:
+                timestamp = datetime.fromisoformat(item.get("timestamp", "")).strftime("%d/%m/%Y à %H:%M")
+            except:
+                timestamp = item.get("timestamp", "Date inconnue")
+            
+            # Affichage de la question et réponse
+            st.markdown(f"<div class='history-date'>📅 {timestamp}</div>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class='history-item'>
+                <strong>❓ Question:</strong> {item['question']}<br><br>
+                <strong>🧠 Réponse:</strong> {item['answer']}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Sources
+            with st.expander("📚 Sources consultées"):
+                for src_i, source in enumerate(item.get("sources", [])):
+                    st.markdown(f"{src_i+1}. {source}")
+            
+            # Bouton d'export PDF
+            st.markdown(export_to_pdf(item['question'], item['answer'], item.get("sources", [])),
+                      unsafe_allow_html=True)
+            st.markdown("<hr>", unsafe_allow_html=True)
+
+# Option pour effacer l'historique
+if total_questions > 0:
+    if st.button("🗑️ Effacer tout l'historique", type="primary", use_container_width=True):
+        user_data["history"] = []
+        users[username] = user_data
+        save_users(users)
+        st.success("✅ Historique effacé avec succès!")
+        st.rerun()
+
+# Boutons de navigation
+st.markdown("---")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🏠 Accueil", use_container_width=True):
+        st.switch_page("pages/00_Accueil.py")
+with col2:
+    if st.button("👤 Profil", use_container_width=True):
+        st.switch_page("pages/02_Profil.py")
+with col3:
+    if st.button("🩺 Maladies Potentielles", use_container_width=True):
+        st.switch_page("pages/03_Maladies_Potentielles.py")
